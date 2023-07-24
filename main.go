@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/exec"
 	"strings"
 
 	"github.com/PuerkitoBio/goquery"
@@ -16,13 +17,30 @@ import (
 const baseURI = "https://www.rottenacker.de/"
 
 func main() {
-	// Set up the Chrome headless browser.
-	ctx, cancel := chromedp.NewContext(context.Background())
+
+	// Set the path to the Chromium binary on your Raspberry Pi.
+	execPath, err := exec.LookPath("chromium-browser")
+	if err != nil {
+		log.Fatalf("Chromium binary not found: %v", err)
+	}
+
+	opts := append(chromedp.DefaultExecAllocatorOptions[:],
+		chromedp.Flag("headless", true),
+		chromedp.Flag("disable-gpu", true),
+		chromedp.Flag("no-sandbox", true),
+		chromedp.Flag("ignore-certificate-errors", true),
+		chromedp.ExecPath(execPath),
+	)
+
+	ctx, cancel := chromedp.NewExecAllocator(context.Background(), opts...)
+	defer cancel()
+
+	ctx, cancel = chromedp.NewContext(ctx)
 	defer cancel()
 
 	// Navigate to the URL and wait for the page to load.
 	var responseText string
-	err := chromedp.Run(ctx,
+	err = chromedp.Run(ctx,
 		chromedp.Navigate(baseURI+"cgi-seiten/amtsblatt.htm"), // Replace with the URL you want to crawl.
 		chromedp.WaitVisible("body", chromedp.ByQuery),
 		chromedp.Evaluate(`document.documentElement.innerHTML`, &responseText),
